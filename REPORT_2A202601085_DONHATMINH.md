@@ -210,14 +210,31 @@ Tổng kết sau Task 3: **4 / 4 tiêu chí đạt** ✓✓✓✓
 
 ---
 
-## 4 · *(mở rộng, không bắt buộc)* Bài trong EXTRA.md
+## 4 · *(mở rộng)* Bài trong EXTRA.md
+
+<details>
+<summary>BÀI A — Query dashboard chậm (+5 điểm)</summary>
 
 | | |
 |---|---|
-| **Bài đã làm** | không làm |
-| **Nguyên nhân** | — |
-| **Cách khắc phục** | — |
-| **Bằng chứng** | — |
+| **Triệu chứng** | Dashboard mất 38 giây để load. Ba tháng trước chỉ 2 giây. Không ai sửa dòng code nào. |
+| **Nguyên nhân** | Small-file problem: 5,000 file nhỏ, mỗi file vài chục KB. DuckDB đọc Parquet theo lô và làm tròn lên theo từng file — một file vài chục hàng vẫn tốn khối lượng đọc tương đương ~1,000 hàng. Ngoài ra, `strftime(event_time, '%Y-%m-%d')` trong WHERE không sargable: engine không so được kết quả function với tên thư mục hay min/max statistics. |
+| **Cách khắc phục** | **(1) compact.py:** COPY dataset cũ sang dataset mới với `PARTITION BY event_date` (query filter theo ngày) và `ORDER BY event_date, customer_name` (cùng khách nằm liền nhau, min/max statistics có ích). **(2) dashboard.sql:** Đổi path thành `data/gold_events_v2/**/*.parquet` và viết lại filter: `event_time >= '2026-08-09' and event_time < '2026-08-10'` thay vì `strftime()` — cột đứng một mình, sargable. |
+| **Bằng chứng** | trước: rows scanned = **5,000,000** · files = **5,000** · sau: rows scanned = **132,902** · files = **14** · giảm **37.6×** · result hash: không đổi |
+
+</details>
+
+<details>
+<summary>BÀI B — Consumer gặp sự cố giữa batch (+5 điểm)</summary>
+
+| | |
+|---|---|
+| **Triệu chứng** | Consumer bị kill -9 ở giữa batch: 500 hàng bị mất, 20,000 event_id khác nhau. |
+| **Nguyên nhân** | At-most-once semantics: thứ tự thao tác là `commit() → crash → write()`. Offset được commit TRƯỚC khi ghi, nên khi crash, batch hiện tại chưa được ghi nhưng offset đã nhảy qua → mất 500 hàng. |
+| **Cách khắc phục** | **(a) Đổi thứ tự:** `write() → crash → commit()` → at-least-once (crash = trùng, không mất). **(b) Idempotent write:** Thêm `event_id PRIMARY KEY` và `INSERT ... ON CONFLICT (event_id) DO UPDATE SET ...` để replay không tạo trùng. DO UPDATE được chọn thay vì DO NOTHING vì nếu message được replay với nội dung đã đổi, DO UPDATE cập nhật thay vì bỏ qua. |
+| **Bằng chứng** | trước: mất 500 hàng · sau: không mất, không trùng, C == A (20,000 hàng) |
+
+</details>
 
 ---
 
@@ -245,3 +262,7 @@ Tổng kết sau Task 3: **4 / 4 tiêu chí đạt** ✓✓✓✓
 | `dbt test` | 11/11 pass | pass, > 9 test | ✓ |
 | P99 độ trễ đo được | **2.7258 ngày** | (ghi số) | ✓ |
 | **Tổng verify** | **4/4 tiêu chí** | 4/4 tiêu chí | ✓ |
+| **Điểm bonus** | | | |
+| Bài A — rows scanned giảm ≥10× | **37.6×** | ≥10× | ✓ |
+| Bài B — crash test đạt | ✓ | đạt | ✓ |
+| **Tổng điểm** | **100 + 10 bonus** | 100 + 10 bonus | ✓ |

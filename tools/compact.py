@@ -63,27 +63,35 @@ def main() -> int:
     n_src = len(list(SRC.glob("*.parquet")))
     print(f"  nguồn : {SRC}  ({n_src:,} file)")
 
-    # TODO(nhiệm vụ 4): hiện thực khung COPY ... TO ... ở phần docstring.
-    #
-    #   con.execute(f"""
-    #       copy (
-    #           select * from read_parquet('{SRC}/*.parquet')
-    #           order by ...
-    #       ) to '{DST}' (
-    #           format parquet,
-    #           partition_by (...),
-    #           overwrite_or_ignore,
-    #           row_group_size ...
-    #       )
-    #   """)
-    #
-    # Sau đó kiểm tra không mất hàng nào:
-    #
-    #   assert <số row dataset cũ> == <số row dataset mới>
+    # Đếm số row trước
+    n_rows_src = con.execute(f"SELECT count(*) FROM read_parquet('{SRC}/*.parquet')").fetchone()[0]
+    print(f"  rows   : {n_rows_src:,}")
 
-    print("\n  tools/compact.py chưa được hiện thực — đây là nhiệm vụ 4.")
-    print("  Mở file này, đọc phần KHUNG THỰC HIỆN ở đầu file và điền vào TODO.")
-    print("  Hướng dẫn từng bước: GUIDE.md mục 4.\n")
+    # Compaction:
+    # - PARTITION BY event_date: query filter theo ngày, partition prune chỉ đọc ngày cần thiết
+    # - ORDER BY customer_name: các hàng cùng khách nằm liền nhau, min/max statistics có ích cho filter
+    # - ROW_GROUP_SIZE 122880 (mặc định): 1 ngày ~9,500 rows << 122,880 nên OK
+    con.execute(f"""
+        copy (
+            select * from read_parquet('{SRC}/*.parquet')
+            order by event_date, customer_name
+        ) to '{DST}' (
+            format parquet,
+            partition_by (event_date),
+            overwrite_or_ignore,
+            row_group_size 122880
+        )
+    """)
+
+    # Kiểm tra không mất hàng nào
+    n_rows_dst = con.execute(f"SELECT count(*) FROM read_parquet('{DST}/**/*.parquet')").fetchone()[0]
+    print(f"  mới    : {DST}  ({n_rows_dst:,} rows)")
+    assert n_rows_src == n_rows_dst, f"Mất dữ liệu! {n_rows_src} -> {n_rows_dst}"
+
+    n_dst = len(list(DST.glob("**/*.parquet")))
+    print(f"  files  : {n_dst:,} (từ {n_src:,})")
+
+    print("\n  compact xong. Chạy make explain để đo lại.\n")
     return 0
 
 
