@@ -266,3 +266,6 @@ Tổng kết sau Task 3: **4 / 4 tiêu chí đạt** ✓✓✓✓
 | Bài A — rows scanned giảm ≥10× | **37.6×** | ≥10× | ✓ |
 | Bài B — crash test đạt | ✓ | đạt | ✓ |
 | **Tổng điểm** | **100 + 10 bonus** | 100 + 10 bonus | ✓ |
+
+
+P/s: Do có 1 số lỗi của Github trong tối nay em đã chụp minh chứng trong thư mục Lỗi github.Em không biết nghĩ là lỗi bản thân nên em đã lo nộp có lỗi nên nhờ gemini đưa lệnh để nộp lại và chạy các lệnh đó nên vô tình xóa hết các commit cũ của bài repo gốc dẫn đến việc cả bài chỉ còn commit của em. EM mong labcoach chấm bài này có thể kiểm tra và thông cảm cho sự ngu ngục của em
